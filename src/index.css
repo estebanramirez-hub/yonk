@@ -1,0 +1,78 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Work+Sans:wght@300;400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Work Sans", ui-sans-serif, system-ui, sans-serif;
+  
+  --color-primary: #ddffaf;
+  --color-primary-container: #a3fe00;
+  --color-secondary: #ff59e3;
+  --color-secondary-container: #ad009b;
+  --color-background: #0e0e0e;
+  --color-surface: #121212;
+  --color-surface-container: #1a1a1a;
+  --color-surface-bright: #242424;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-white font-body antialiased selection:bg-primary selection:text-black;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    background-attachment: fixed;
+    background-blend-mode: overlay;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display font-bold tracking-tighter uppercase;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply px-6 py-3 font-display font-bold uppercase tracking-widest transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:pointer-events-none;
+    border-radius: 0px;
+  }
+
+  .btn-primary {
+    @apply bg-primary text-black hover:bg-primary-container hover:shadow-[0_0_20px_rgba(163,254,0,0.4)];
+  }
+
+  .btn-secondary {
+    @apply border-2 border-secondary text-secondary hover:bg-secondary hover:text-white hover:shadow-[0_0_20px_rgba(255,89,227,0.4)];
+  }
+
+  .card {
+    @apply bg-surface-container border-0 transition-all duration-300;
+    border-radius: 0px;
+  }
+
+  .card:hover {
+    @apply bg-surface-bright shadow-[0_0_30px_rgba(221,255,175,0.1)];
+  }
+
+  .input {
+    @apply w-full bg-surface-container border-0 px-4 py-3 text-white focus:ring-2 focus:ring-primary outline-none transition-all;
+    border-radius: 0px;
+  }
+
+  .neon-text {
+    text-shadow: 0 0 10px currentColor;
+  }
+
+  .tear-off {
+    @apply relative bg-white text-black px-4 py-1 font-display font-bold;
+    clip-path: polygon(2% 0%, 98% 0%, 100% 20%, 98% 80%, 100% 100%, 0% 100%, 2% 80%, 0% 20%);
+  }
+}
+
+.glass {
+  @apply bg-surface-container/60 backdrop-blur-xl border border-white/5;
+}
+
+.graffiti-title {
+  @apply font-display text-7xl md:text-9xl font-black italic;
+  -webkit-text-stroke: 2px white;
+  color: transparent;
+  filter: drop-shadow(4px 4px 0px theme('colors.primary'));
+}

@@ -1,0 +1,60 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "A clothing or accessory item for sale.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "description": "Name of the product" },
+        "description": { "type": "string", "description": "Detailed description" },
+        "price": { "type": "number", "description": "Price in ARS" },
+        "images": { "type": "array", "items": { "type": "string" }, "description": "URLs of product images" },
+        "stock": { "type": "number", "description": "Available quantity" },
+        "category": { "type": "string", "enum": ["ropa", "accesorios"] },
+        "subcategory": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "price", "category", "images"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "A purchase request sent via WhatsApp.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "items": { "type": "array", "items": { "type": "object" } },
+        "total": { "type": "number" },
+        "customerName": { "type": "string" },
+        "paymentMethod": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["items", "total", "createdAt"]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "A user with administrative privileges.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin"] }
+      },
+      "required": ["uid", "email", "role"]
+    }
+  },
+  "firestore": {
+    "/productos/{productId}": {
+      "schema": "Product",
+      "description": "Collection of products for sale."
+    },
+    "/pedidos/{orderId}": {
+      "schema": "Order",
+      "description": "Collection of orders (for record keeping)."
+    },
+    "/admin_users/{userId}": {
+      "schema": "AdminUser",
+      "description": "Collection of authorized admin users."
+    }
+  }
+}
