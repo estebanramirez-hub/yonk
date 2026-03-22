@@ -60,7 +60,7 @@ const Admin: React.FC = () => {
       await signInWithPopup(auth, googleProvider);
     } catch (err: any) {
       console.error(err);
-      setError('Error al iniciar sesión con Google. Asegurate de tener habilitado el proveedor en Firebase.');
+      setError(`Error: ${err.message || 'Error al iniciar sesión con Google.'}`);
     }
   };
 
