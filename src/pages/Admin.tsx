@@ -20,6 +20,57 @@ import { Plus, Trash2, Edit2, LogOut, Package, Image as ImageIcon, Loader2 } fro
 import { auth, db, googleProvider } from '../firebase';
 import { Product } from '../types';
 
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
+}
+
+const handleFirestoreError = (error: unknown, operationType: OperationType, path: string | null) => {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  return new Error(JSON.stringify(errInfo));
+};
+
 const Admin: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,9 +100,15 @@ const Admin: React.FC = () => {
   }, []);
 
   const fetchProducts = async () => {
-    const q = query(collection(db, 'productos'), orderBy('createdAt', 'desc'));
-    const snapshot = await getDocs(q);
-    setProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
+    const path = 'productos';
+    try {
+      const q = query(collection(db, path), orderBy('createdAt', 'desc'));
+      const snapshot = await getDocs(q);
+      setProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.GET, path);
+      setError('Error al cargar productos.');
+    }
   };
 
   const handleLogin = async () => {
@@ -72,14 +129,15 @@ const Admin: React.FC = () => {
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    const path = 'productos';
     try {
       if (isEditing && currentProduct.id) {
-        await updateDoc(doc(db, 'productos', currentProduct.id), {
+        await updateDoc(doc(db, path, currentProduct.id), {
           ...currentProduct,
           updatedAt: serverTimestamp()
         });
       } else {
-        await addDoc(collection(db, 'productos'), {
+        await addDoc(collection(db, path), {
           ...currentProduct,
           createdAt: serverTimestamp()
         });
@@ -88,8 +146,8 @@ const Admin: React.FC = () => {
       setCurrentProduct({ name: '', description: '', price: 0, images: [''], stock: 0, category: 'ropa', subcategory: 'Baggy' });
       fetchProducts();
     } catch (err) {
-      console.error(err);
-      setError('Error al guardar el producto.');
+      handleFirestoreError(err, OperationType.WRITE, path);
+      setError('Error al guardar el producto. Verificá los permisos o si el precio es mayor a 0.');
     } finally {
       setLoading(false);
     }
@@ -97,10 +155,12 @@ const Admin: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('¿Seguro que querés eliminar este producto?')) return;
+    const path = 'productos';
     try {
-      await deleteDoc(doc(db, 'productos', id));
+      await deleteDoc(doc(db, path, id));
       fetchProducts();
     } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, path);
       setError('Error al eliminar.');
     }
   };
@@ -128,7 +188,10 @@ const Admin: React.FC = () => {
   return (
     <div className="max-w-7xl mx-auto px-6 py-12">
       <div className="flex items-center justify-between mb-12">
-        <h2 className="text-5xl italic">Panel Admin</h2>
+        <div>
+          <h2 className="text-5xl italic">Panel Admin</h2>
+          <p className="text-white/40 text-xs mt-2">Conectado como: <span className="text-primary">{user.email}</span></p>
+        </div>
         <button onClick={() => auth.signOut()} className="flex items-center gap-2 text-white/40 hover:text-secondary transition-colors">
           <LogOut size={20} /> Salir
         </button>
