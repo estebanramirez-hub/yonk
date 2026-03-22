@@ -44,11 +44,11 @@ service cloud.firestore {
     function isAdmin() {
       return isAuthenticated() && 
         (get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.role == 'admin' ||
-         (request.auth.token.email == "ramirezestebanramirez@gmail.com" && request.auth.token.email_verified == true));
+         request.auth.token.email == "ramirezestebanramirez@gmail.com");
     }
 
     function isValidProduct(data) {
-      return data.keys().hasAll(['name', 'price', 'category', 'images', 'stock', 'subcategory', 'createdAt']) &&
+      return data.keys().hasAll(['name', 'price', 'category', 'images', 'stock', 'subcategory']) &&
              data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
              data.price is number && data.price > 0 &&
              data.category in ['ropa', 'accesorios'] &&
@@ -65,8 +65,10 @@ service cloud.firestore {
 
     // Rules
     match /productos/{productId} {
-      allow read: if true; // Publicly readable
-      allow create, update, delete: if isAdmin() && isValidProduct(request.resource.data);
+      allow read: if true;
+      allow create: if isAdmin() && isValidProduct(request.resource.data) && ('createdAt' in request.resource.data);
+      allow update: if isAdmin() && isValidProduct(request.resource.data);
+      allow delete: if isAdmin();
     }
 
     match /pedidos/{orderId} {
