@@ -108,10 +108,20 @@ const Admin: React.FC = () => {
   if (loading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary" size={48} /></div>;
 
   if (!user) {
+    const isDefaultConfig = auth.app.options.apiKey?.startsWith('AIzaSyAeUa1w9WLUj');
+
     return (
       <div className="max-w-md mx-auto mt-20 p-8 bg-surface-container border border-white/5 text-center">
         <h2 className="text-4xl mb-8 italic">Admin Login</h2>
         <p className="text-white/60 mb-8">Acceso exclusivo para el administrador de YONK.</p>
+        
+        {isDefaultConfig && (
+          <div className="bg-secondary/10 border border-secondary/20 p-4 mb-8 text-xs text-secondary text-left">
+            <p className="font-bold mb-2">⚠️ CONFIGURACIÓN PENDIENTE</p>
+            <p>El sitio todavía está usando una configuración de Firebase de prueba. Para que el botón de Google funcione, necesito que me pases tu <b>apiKey</b> y <b>appId</b> de la consola de Firebase.</p>
+          </div>
+        )}
+
         <button 
           onClick={handleLogin} 
           className="btn btn-primary w-full flex items-center justify-center gap-3"
