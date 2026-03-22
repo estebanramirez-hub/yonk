@@ -139,59 +139,102 @@ const Admin: React.FC = () => {
         <div className="lg:col-span-1 bg-surface-container p-8 border border-white/5 h-fit">
           <h3 className="text-2xl mb-8">{isEditing ? 'Editar Producto' : 'Nuevo Producto'}</h3>
           <form onSubmit={handleSaveProduct} className="space-y-6">
-            <input 
-              placeholder="Nombre" 
-              className="input" 
-              value={currentProduct.name} 
-              onChange={e => setCurrentProduct({...currentProduct, name: e.target.value})} 
-              required 
-            />
-            <textarea 
-              placeholder="Descripción" 
-              className="input h-32" 
-              value={currentProduct.description} 
-              onChange={e => setCurrentProduct({...currentProduct, description: e.target.value})} 
-            />
-            <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs uppercase font-bold text-white/40 mb-2 block">Nombre del Producto</label>
               <input 
-                type="number" 
-                placeholder="Precio" 
+                placeholder="Nombre" 
                 className="input" 
-                value={currentProduct.price} 
-                onChange={e => setCurrentProduct({...currentProduct, price: Number(e.target.value)})} 
-                required 
-              />
-              <input 
-                type="number" 
-                placeholder="Stock" 
-                className="input" 
-                value={currentProduct.stock} 
-                onChange={e => setCurrentProduct({...currentProduct, stock: Number(e.target.value)})} 
+                value={currentProduct.name} 
+                onChange={e => setCurrentProduct({...currentProduct, name: e.target.value})} 
                 required 
               />
             </div>
-            <select 
-              className="input" 
-              value={currentProduct.category} 
-              onChange={e => setCurrentProduct({...currentProduct, category: e.target.value as any})}
-            >
-              <option value="ropa">Ropa</option>
-              <option value="accesorios">Accesorios</option>
-            </select>
-            <input 
-              placeholder="Subcategoría (Baggy, Jorts, etc)" 
-              className="input" 
-              value={currentProduct.subcategory} 
-              onChange={e => setCurrentProduct({...currentProduct, subcategory: e.target.value})} 
-              required 
-            />
-            <input 
-              placeholder="URL de Imagen" 
-              className="input" 
-              value={currentProduct.images?.[0]} 
-              onChange={e => setCurrentProduct({...currentProduct, images: [e.target.value]})} 
-              required 
-            />
+
+            <div>
+              <label className="text-xs uppercase font-bold text-white/40 mb-2 block">Descripción</label>
+              <textarea 
+                placeholder="Descripción" 
+                className="input h-32" 
+                value={currentProduct.description} 
+                onChange={e => setCurrentProduct({...currentProduct, description: e.target.value})} 
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs uppercase font-bold text-white/40 mb-2 block">Precio ($)</label>
+                <input 
+                  type="number" 
+                  placeholder="Precio" 
+                  className="input" 
+                  value={currentProduct.price} 
+                  onChange={e => setCurrentProduct({...currentProduct, price: Number(e.target.value)})} 
+                  required 
+                />
+              </div>
+              <div>
+                <label className="text-xs uppercase font-bold text-white/40 mb-2 block">Stock</label>
+                <input 
+                  type="number" 
+                  placeholder="Stock" 
+                  className="input" 
+                  value={currentProduct.stock} 
+                  onChange={e => setCurrentProduct({...currentProduct, stock: Number(e.target.value)})} 
+                  required 
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs uppercase font-bold text-white/40 mb-2 block">Categoría</label>
+              <select 
+                className="input" 
+                value={currentProduct.category} 
+                onChange={e => setCurrentProduct({...currentProduct, category: e.target.value as any, subcategory: ''})}
+              >
+                <option value="ropa">Ropa</option>
+                <option value="accesorios">Accesorios</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs uppercase font-bold text-white/40 mb-2 block">Subcategoría</label>
+              <select 
+                className="input" 
+                value={currentProduct.subcategory} 
+                onChange={e => setCurrentProduct({...currentProduct, subcategory: e.target.value})} 
+                required 
+              >
+                <option value="" disabled>Seleccionar Subcategoría</option>
+                {currentProduct.category === 'ropa' ? (
+                  <>
+                    <option value="Baggy">Baggy</option>
+                    <option value="Jorts">Jorts</option>
+                    <option value="Remeras">Remeras</option>
+                    <option value="Hoodies">Hoodies</option>
+                    <option value="Pantalones">Pantalones</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="Gorras">Gorras</option>
+                    <option value="Cintos">Cintos</option>
+                    <option value="Medias">Medias</option>
+                    <option value="Otros">Otros</option>
+                  </>
+                )}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs uppercase font-bold text-white/40 mb-2 block">URL de Imagen</label>
+              <input 
+                placeholder="URL de Imagen" 
+                className="input" 
+                value={currentProduct.images?.[0]} 
+                onChange={e => setCurrentProduct({...currentProduct, images: [e.target.value]})} 
+                required 
+              />
+            </div>
             <div className="flex gap-4">
               <button type="submit" className="btn btn-primary flex-1">Guardar</button>
               {isEditing && (
