@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  signInWithEmailAndPassword, 
+  signInWithPopup, 
   signOut, 
   onAuthStateChanged, 
   User 
@@ -17,7 +17,7 @@ import {
   orderBy
 } from 'firebase/firestore';
 import { Plus, Trash2, Edit2, LogOut, Package, Image as ImageIcon, Loader2 } from 'lucide-react';
-import { auth, db } from '../firebase';
+import { auth, db, googleProvider } from '../firebase';
 import { Product } from '../types';
 
 const Admin: React.FC = () => {
@@ -54,13 +54,13 @@ const Admin: React.FC = () => {
     setProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLogin = async () => {
     setError('');
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithPopup(auth, googleProvider);
     } catch (err: any) {
-      setError('Error al iniciar sesión. Verificá tus credenciales.');
+      console.error(err);
+      setError('Error al iniciar sesión con Google. Asegurate de tener habilitado el proveedor en Firebase.');
     }
   };
 
@@ -104,28 +104,17 @@ const Admin: React.FC = () => {
 
   if (!user) {
     return (
-      <div className="max-w-md mx-auto mt-20 p-8 bg-surface-container border border-white/5">
+      <div className="max-w-md mx-auto mt-20 p-8 bg-surface-container border border-white/5 text-center">
         <h2 className="text-4xl mb-8 italic">Admin Login</h2>
-        <form onSubmit={handleLogin} className="space-y-6">
-          <input 
-            type="email" 
-            placeholder="Email" 
-            className="input" 
-            value={email} 
-            onChange={e => setEmail(e.target.value)} 
-            required 
-          />
-          <input 
-            type="password" 
-            placeholder="Contraseña" 
-            className="input" 
-            value={password} 
-            onChange={e => setPassword(e.target.value)} 
-            required 
-          />
-          {error && <p className="text-secondary text-xs uppercase font-bold">{error}</p>}
-          <button type="submit" className="btn btn-primary w-full">Entrar</button>
-        </form>
+        <p className="text-white/60 mb-8">Acceso exclusivo para el administrador de YONK.</p>
+        <button 
+          onClick={handleLogin} 
+          className="btn btn-primary w-full flex items-center justify-center gap-3"
+        >
+          <img src="https://www.gstatic.com/firebase/explore/google.svg" className="w-5 h-5" alt="Google" />
+          Entrar con Google
+        </button>
+        {error && <p className="text-secondary text-xs uppercase font-bold mt-6">{error}</p>}
       </div>
     );
   }
