@@ -57,10 +57,15 @@ const Admin: React.FC = () => {
   const handleLogin = async () => {
     setError('');
     try {
+      // Intentando iniciar sesión con Google
       await signInWithPopup(auth, googleProvider);
     } catch (err: any) {
-      console.error(err);
-      setError(`Error: ${err.message || 'Error al iniciar sesión con Google.'}`);
+      console.error("Error de Firebase:", err);
+      if (err.code === 'auth/unauthorized-domain') {
+        setError('Error: Dominio no autorizado. Por favor, agrega "yonk-goya.netlify.app" en la sección de Dominios Autorizados de tu consola de Firebase.');
+      } else {
+        setError(`Error: ${err.message || 'Error al iniciar sesión con Google.'}`);
+      }
     }
   };
 
