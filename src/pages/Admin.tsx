@@ -17,8 +17,9 @@ import {
   orderBy,
   onSnapshot
 } from 'firebase/firestore';
-import { Plus, Trash2, Edit2, LogOut, Package, Image as ImageIcon, Loader2 } from 'lucide-react';
-import { auth, db, googleProvider } from '../firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { Plus, Trash2, Edit2, LogOut, Package, Image as ImageIcon, Loader2, Upload } from 'lucide-react';
+import { auth, db, googleProvider, storage } from '../firebase';
 import { Product } from '../types';
 import { CATEGORIES } from '../constants';
 
@@ -78,6 +79,7 @@ const Admin: React.FC = () => {
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState('');
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -150,6 +152,42 @@ const Admin: React.FC = () => {
     } catch (err: any) {
       console.error("Login Error:", err);
       setError(`Error: ${err.message || 'Error al iniciar sesión.'}`);
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError('Por favor, seleccioná un archivo de imagen válido.');
+      return;
+    }
+
+    // Limit size to 5MB
+    if (file.size > 5 * 1024 * 1024) {
+      setError('La imagen es demasiado grande. El límite es 5MB.');
+      return;
+    }
+
+    setIsUploading(true);
+    setError('');
+
+    try {
+      const storageRef = ref(storage, `productos/${Date.now()}_${file.name}`);
+      const snapshot = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      
+      setCurrentProduct(prev => ({
+        ...prev,
+        images: [downloadURL, ...(prev.images?.slice(1) || [])]
+      }));
+      console.log("Image uploaded successfully:", downloadURL);
+    } catch (err: any) {
+      console.error("Upload Error:", err);
+      setError('Error al subir la imagen. Verificá tu conexión.');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -399,16 +437,66 @@ const Admin: React.FC = () => {
               </select>
             </div>
 
-            <div>
-              <label className="text-xs uppercase font-bold text-white/40 mb-2 block">URL de Imagen</label>
-              <input 
-                placeholder="URL de Imagen" 
-                className="input" 
-                value={currentProduct.images?.[0]} 
-                onChange={e => setCurrentProduct({...currentProduct, images: [e.target.value]})} 
-                required 
-                disabled={isSaving}
-              />
+            <div className="space-y-4">
+              <label className="text-xs uppercase font-bold text-white/40 mb-2 block">Imagen del Producto</label>
+              
+              <div className="flex flex-col gap-4">
+                {currentProduct.images?.[0] && (
+                  <div className="relative aspect-square w-full bg-background border border-white/5 overflow-hidden">
+                    <img 
+                      src={currentProduct.images[0]} 
+                      alt="Preview" 
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setCurrentProduct(prev => ({ ...prev, images: [''] }))}
+                      className="absolute top-2 right-2 p-2 bg-secondary text-white rounded-full hover:bg-secondary/80 transition-colors"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                )}
+
+                <div className="relative">
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                    id="image-upload"
+                    disabled={isUploading || isSaving}
+                  />
+                  <label 
+                    htmlFor="image-upload"
+                    className={`flex items-center justify-center gap-3 p-4 border-2 border-dashed border-white/10 hover:border-primary/50 transition-all cursor-pointer bg-white/5 group ${(isUploading || isSaving) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    {isUploading ? (
+                      <Loader2 className="animate-spin text-primary" size={24} />
+                    ) : (
+                      <Upload className="text-white/40 group-hover:text-primary transition-colors" size={24} />
+                    )}
+                    <span className="text-xs uppercase font-bold tracking-widest text-white/40 group-hover:text-white transition-colors">
+                      {isUploading ? 'Subiendo...' : 'Subir Imagen'}
+                    </span>
+                  </label>
+                </div>
+
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20">
+                    <ImageIcon size={18} />
+                  </span>
+                  <input 
+                    type="url" 
+                    placeholder="O pegá una URL de imagen" 
+                    className="input pl-12"
+                    value={currentProduct.images?.[0] || ''}
+                    onChange={(e) => setCurrentProduct({ ...currentProduct, images: [e.target.value] })}
+                    disabled={isSaving}
+                  />
+                </div>
+              </div>
             </div>
             <div className="flex gap-4">
               <button type="submit" className="btn btn-primary flex-1" disabled={isSaving}>
