@@ -8,7 +8,7 @@ import {
 import { 
   collection, 
   addDoc, 
-  getDocs, 
+  getDoc,
   deleteDoc, 
   doc, 
   updateDoc, 
@@ -75,6 +75,7 @@ const handleFirestoreError = (error: unknown, operationType: OperationType, path
 
 const Admin: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
+  const [isAdminUser, setIsAdminUser] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
@@ -94,7 +95,31 @@ const Admin: React.FC = () => {
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (u) => {
       setUser(u);
-      setIsPageLoading(false);
+      if (u) {
+        // Check admin status
+        const checkAdmin = async () => {
+          if (u.email === 'ramirezestebanramirez@gmail.com') {
+            setIsAdminUser(true);
+          } else {
+            try {
+              const adminDoc = await getDoc(doc(db, 'admin_users', u.uid));
+              if (adminDoc.exists() && adminDoc.data().role === 'admin') {
+                setIsAdminUser(true);
+              } else {
+                setIsAdminUser(false);
+              }
+            } catch (e) {
+              console.error("Admin check error", e);
+              setIsAdminUser(false);
+            }
+          }
+          setIsPageLoading(false);
+        };
+        checkAdmin();
+      } else {
+        setIsAdminUser(false);
+        setIsPageLoading(false);
+      }
     });
 
     const q = query(collection(db, 'productos'));
@@ -132,11 +157,16 @@ const Admin: React.FC = () => {
     e.preventDefault();
     if (isSaving) return;
     
+    console.log("Starting save operation...");
     setIsSaving(true);
     setError('');
     const path = 'productos';
     
     try {
+      if (!isAdminUser) {
+        throw new Error('No tenés permisos de administrador para realizar esta acción.');
+      }
+
       // Validaciones básicas antes de enviar
       if (!currentProduct.name || !currentProduct.price || currentProduct.price <= 0 || !currentProduct.subcategory || !currentProduct.category || !currentProduct.images?.[0]) {
         throw new Error('El nombre, el precio (mayor a 0), la categoría, la subcategoría y la imagen son obligatorios.');
@@ -148,30 +178,49 @@ const Admin: React.FC = () => {
         stock: Number(currentProduct.stock),
       };
 
-      if (isEditing && currentProduct.id) {
-        const { id, ...dataToUpdate } = productData;
-        await updateDoc(doc(db, path, id), {
-          ...dataToUpdate,
+      // Clean up data for Firestore
+      const { id: productId, ...dataToSave } = productData;
+
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Tiempo de espera agotado (15s). Verificá tu conexión.')), 15000)
+      );
+
+      if (isEditing && productId) {
+        console.log("Updating product:", productId);
+        const updatePromise = updateDoc(doc(db, path, productId), {
+          ...dataToSave,
           updatedAt: serverTimestamp()
         });
+        await Promise.race([updatePromise, timeoutPromise]);
+        console.log("Product updated successfully");
       } else {
-        await addDoc(collection(db, path), {
-          ...productData,
+        console.log("Adding new product");
+        const addPromise = addDoc(collection(db, path), {
+          ...dataToSave,
           createdAt: serverTimestamp()
         });
+        await Promise.race([addPromise, timeoutPromise]);
+        console.log("Product added successfully");
       }
       
       setIsEditing(false);
       setCurrentProduct({ name: '', description: '', price: 0, images: [''], stock: 0, category: 'ropa', subcategory: 'Baggy' });
+      console.log("Form reset");
     } catch (err: any) {
       console.error("Save Error:", err);
-      setError(err.message || 'Error al guardar el producto. Verificá los permisos.');
+      const errorMessage = err.message || 'Error al guardar el producto.';
+      setError(errorMessage.includes('permission') ? 'Error de permisos: No estás autorizado.' : errorMessage);
     } finally {
+      console.log("Save operation finished");
       setIsSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
+    if (!isAdminUser) {
+      setError('No tenés permisos para eliminar.');
+      return;
+    }
     if (!window.confirm('¿Seguro que querés eliminar este producto?')) return;
     const path = 'productos';
     try {
@@ -202,6 +251,17 @@ const Admin: React.FC = () => {
     );
   }
 
+  if (!isAdminUser) {
+    return (
+      <div className="max-w-md mx-auto mt-20 p-8 bg-surface-container border border-white/5 text-center">
+        <h2 className="text-4xl mb-8 italic text-secondary">Acceso Denegado</h2>
+        <p className="text-white/60 mb-8">No tenés permisos de administrador para acceder a este panel.</p>
+        <p className="text-white/40 text-xs mb-8">Conectado como: {user.email}</p>
+        <button onClick={() => auth.signOut()} className="btn btn-secondary w-full">Salir</button>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-6 py-12">
       <div className="flex items-center justify-between mb-12">
@@ -226,7 +286,17 @@ const Admin: React.FC = () => {
             </div>
           )}
           
-          <h3 className="text-2xl mb-8">{isEditing ? 'Editar Producto' : 'Nuevo Producto'}</h3>
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="text-2xl">{isEditing ? 'Editar Producto' : 'Nuevo Producto'}</h3>
+            {isEditing && (
+              <button 
+                onClick={() => { setIsEditing(false); setCurrentProduct({ name: '', description: '', price: 0, images: [''], stock: 0, category: 'ropa', subcategory: 'Baggy' }); }}
+                className="text-xs uppercase font-bold text-primary hover:underline"
+              >
+                Nuevo
+              </button>
+            )}
+          </div>
           <form onSubmit={handleSaveProduct} className="space-y-6">
             {error && <p className="p-4 bg-secondary/10 border border-secondary/20 text-secondary text-xs uppercase font-bold">{error}</p>}
             
