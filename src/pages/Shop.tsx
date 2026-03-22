@@ -4,6 +4,7 @@ import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestor
 import { Filter, SlidersHorizontal, X, Loader2 } from 'lucide-react';
 import { db } from '../firebase';
 import { Product } from '../types';
+import { CATEGORIES } from '../constants';
 import ProductCard from '../components/ProductCard';
 
 interface ShopProps {
@@ -16,27 +17,34 @@ const Shop: React.FC<ShopProps> = ({ category }) => {
   const [loading, setLoading] = useState(true);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  const subcategories = category === 'ropa' 
-    ? ['Baggy', 'Jorts', 'Remeras', 'Hoodies', 'Buzos', 'Pantalones', 'Camperas', 'Otros']
-    : ['Anillos', 'Collares', 'Pulseras', 'Gorras', 'Aros', 'Llaveros', 'Cintos', 'Medias', 'Otros'];
+  const subcategories = CATEGORIES[category];
 
   const activeSubcat = searchParams.get('sub');
 
   useEffect(() => {
     setLoading(true);
-    let q = query(
-      collection(db, 'productos'), 
-      where('category', '==', category),
-      orderBy('createdAt', 'desc')
-    );
-
-    if (activeSubcat) {
-      q = query(q, where('subcategory', '==', activeSubcat));
-    }
+    // Fetch all products to avoid index issues. We filter client-side.
+    const q = query(collection(db, 'productos'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-      setProducts(fetched);
+      
+      // Sort by createdAt desc client-side
+      const sorted = fetched.sort((a, b) => {
+        const dateA = a.createdAt?.seconds || 0;
+        const dateB = b.createdAt?.seconds || 0;
+        return dateB - dateA;
+      });
+
+      // Filter by category and subcategory client-side
+      const filtered = sorted.filter(p => p.category === category);
+      
+      if (activeSubcat) {
+        setProducts(filtered.filter(p => p.subcategory === activeSubcat));
+      } else {
+        setProducts(filtered);
+      }
+      
       setLoading(false);
     }, (error) => {
       console.error('Error fetching products:', error);
@@ -52,7 +60,7 @@ const Shop: React.FC<ShopProps> = ({ category }) => {
         {/* Sidebar Filters */}
         <aside className="hidden md:block w-64 space-y-12">
           <div>
-            <h2 className="text-4xl mb-8 italic">{category}</h2>
+            <h2 className="text-4xl mb-8 italic uppercase">{category}</h2>
             <div className="space-y-4">
               <button 
                 onClick={() => setSearchParams({})}
@@ -75,7 +83,7 @@ const Shop: React.FC<ShopProps> = ({ category }) => {
 
         {/* Mobile Filter Toggle */}
         <div className="md:hidden flex items-center justify-between mb-8">
-          <h2 className="text-4xl italic">{category}</h2>
+          <h2 className="text-4xl italic uppercase">{category}</h2>
           <button 
             onClick={() => setIsFilterOpen(true)}
             className="flex items-center gap-2 btn btn-secondary py-2 px-4 text-xs"

@@ -12,10 +12,21 @@ const Home: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const q = query(collection(db, 'productos'), orderBy('createdAt', 'desc'), limit(4));
+    // Simple query to avoid index issues. We filter/sort client-side.
+    const q = query(collection(db, 'productos'));
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-      setFeatured(products);
+      const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+      
+      // Sort by createdAt desc client-side
+      const sorted = fetched.sort((a, b) => {
+        const dateA = a.createdAt?.seconds || 0;
+        const dateB = b.createdAt?.seconds || 0;
+        return dateB - dateA;
+      });
+
+      // Take only the first 4
+      setFeatured(sorted.slice(0, 4));
       setLoading(false);
     }, (error) => {
       console.error('Error fetching featured products:', error);

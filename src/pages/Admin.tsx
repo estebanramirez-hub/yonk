@@ -20,6 +20,7 @@ import {
 import { Plus, Trash2, Edit2, LogOut, Package, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { auth, db, googleProvider } from '../firebase';
 import { Product } from '../types';
+import { CATEGORIES } from '../constants';
 
 enum OperationType {
   CREATE = 'create',
@@ -96,9 +97,16 @@ const Admin: React.FC = () => {
       setIsPageLoading(false);
     });
 
-    const q = query(collection(db, 'productos'), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'productos'));
     const unsubscribeProducts = onSnapshot(q, (snapshot) => {
-      setProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
+      const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+      // Sort by createdAt desc client-side
+      const sorted = fetched.sort((a, b) => {
+        const dateA = a.createdAt?.seconds || 0;
+        const dateB = b.createdAt?.seconds || 0;
+        return dateB - dateA;
+      });
+      setProducts(sorted);
     }, (err) => {
       console.error("Firestore Snapshot Error:", err);
       setError('Error al conectar con la base de datos. Verificá tu conexión.');
@@ -130,8 +138,8 @@ const Admin: React.FC = () => {
     
     try {
       // Validaciones básicas antes de enviar
-      if (!currentProduct.name || !currentProduct.price || currentProduct.price <= 0) {
-        throw new Error('El nombre y el precio (mayor a 0) son obligatorios.');
+      if (!currentProduct.name || !currentProduct.price || currentProduct.price <= 0 || !currentProduct.subcategory || !currentProduct.category || !currentProduct.images?.[0]) {
+        throw new Error('El nombre, el precio (mayor a 0), la categoría, la subcategoría y la imagen son obligatorios.');
       }
 
       const productData = {
@@ -277,7 +285,14 @@ const Admin: React.FC = () => {
               <select 
                 className="input" 
                 value={currentProduct.category} 
-                onChange={e => setCurrentProduct({...currentProduct, category: e.target.value as any, subcategory: ''})}
+                onChange={e => {
+                  const newCat = e.target.value as 'ropa' | 'accesorios';
+                  setCurrentProduct({
+                    ...currentProduct, 
+                    category: newCat, 
+                    subcategory: CATEGORIES[newCat][0]
+                  });
+                }}
                 disabled={isSaving}
               >
                 <option value="ropa">Ropa</option>
@@ -296,28 +311,13 @@ const Admin: React.FC = () => {
               >
                 <option value="" disabled>Seleccionar Subcategoría</option>
                 {currentProduct.category === 'ropa' ? (
-                  <>
-                    <option value="Baggy">Baggy</option>
-                    <option value="Jorts">Jorts</option>
-                    <option value="Remeras">Remeras</option>
-                    <option value="Hoodies">Hoodies</option>
-                    <option value="Buzos">Buzos</option>
-                    <option value="Pantalones">Pantalones</option>
-                    <option value="Camperas">Camperas</option>
-                    <option value="Otros">Otros</option>
-                  </>
+                  CATEGORIES.ropa.map(sub => (
+                    <option key={sub} value={sub}>{sub}</option>
+                  ))
                 ) : (
-                  <>
-                    <option value="Anillos">Anillos</option>
-                    <option value="Collares">Collares</option>
-                    <option value="Pulseras">Pulseras</option>
-                    <option value="Gorras">Gorras</option>
-                    <option value="Aros">Aros</option>
-                    <option value="Llaveros">Llaveros</option>
-                    <option value="Cintos">Cintos</option>
-                    <option value="Medias">Medias</option>
-                    <option value="Otros">Otros</option>
-                  </>
+                  CATEGORIES.accesorios.map(sub => (
+                    <option key={sub} value={sub}>{sub}</option>
+                  ))
                 )}
               </select>
             </div>
