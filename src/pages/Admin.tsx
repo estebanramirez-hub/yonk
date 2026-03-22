@@ -14,7 +14,8 @@ import {
   updateDoc, 
   serverTimestamp,
   query,
-  orderBy
+  orderBy,
+  onSnapshot
 } from 'firebase/firestore';
 import { Plus, Trash2, Edit2, LogOut, Package, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { auth, db, googleProvider } from '../firebase';
@@ -91,25 +92,24 @@ const Admin: React.FC = () => {
   });
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setLoading(false);
-      if (u) fetchProducts();
     });
-    return unsubscribe;
-  }, []);
 
-  const fetchProducts = async () => {
-    const path = 'productos';
-    try {
-      const q = query(collection(db, path), orderBy('createdAt', 'desc'));
-      const snapshot = await getDocs(q);
+    const q = query(collection(db, 'productos'), orderBy('createdAt', 'desc'));
+    const unsubscribeProducts = onSnapshot(q, (snapshot) => {
       setProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
-    } catch (err) {
-      handleFirestoreError(err, OperationType.GET, path);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.GET, 'productos');
       setError('Error al cargar productos.');
-    }
-  };
+    });
+
+    return () => {
+      unsubscribeAuth();
+      unsubscribeProducts();
+    };
+  }, []);
 
   const handleLogin = async () => {
     setError('');
@@ -144,7 +144,6 @@ const Admin: React.FC = () => {
       }
       setIsEditing(false);
       setCurrentProduct({ name: '', description: '', price: 0, images: [''], stock: 0, category: 'ropa', subcategory: 'Baggy' });
-      fetchProducts();
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, path);
       setError('Error al guardar el producto. Verificá los permisos o si el precio es mayor a 0.');
@@ -158,7 +157,6 @@ const Admin: React.FC = () => {
     const path = 'productos';
     try {
       await deleteDoc(doc(db, path, id));
-      fetchProducts();
     } catch (err) {
       handleFirestoreError(err, OperationType.DELETE, path);
       setError('Error al eliminar.');

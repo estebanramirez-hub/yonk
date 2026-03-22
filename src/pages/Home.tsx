@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { motion } from 'framer-motion';
-import { ArrowRight, Zap, Shield, Truck } from 'lucide-react';
+import { ArrowRight, Zap, Shield, Truck, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { db } from '../firebase';
 import { Product } from '../types';
@@ -12,19 +12,17 @@ const Home: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchFeatured = async () => {
-      try {
-        const q = query(collection(db, 'productos'), orderBy('createdAt', 'desc'), limit(4));
-        const snapshot = await getDocs(q);
-        const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-        setFeatured(products);
-      } catch (error) {
-        console.error('Error fetching featured products:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchFeatured();
+    const q = query(collection(db, 'productos'), orderBy('createdAt', 'desc'), limit(4));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+      setFeatured(products);
+      setLoading(false);
+    }, (error) => {
+      console.error('Error fetching featured products:', error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   return (

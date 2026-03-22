@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
-import { Filter, SlidersHorizontal, X } from 'lucide-react';
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { Filter, SlidersHorizontal, X, Loader2 } from 'lucide-react';
 import { db } from '../firebase';
 import { Product } from '../types';
 import ProductCard from '../components/ProductCard';
@@ -17,35 +17,33 @@ const Shop: React.FC<ShopProps> = ({ category }) => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const subcategories = category === 'ropa' 
-    ? ['Baggy', 'Jorts', 'Remera', 'Buzos']
-    : ['Anillos', 'Collares', 'Pulseras', 'Gorras', 'Aros', 'Llaveros'];
+    ? ['Baggy', 'Jorts', 'Remeras', 'Hoodies', 'Pantalones']
+    : ['Gorras', 'Cintos', 'Medias', 'Otros'];
 
   const activeSubcat = searchParams.get('sub');
 
   useEffect(() => {
-    const fetchProducts = async () => {
-      setLoading(true);
-      try {
-        let q = query(
-          collection(db, 'productos'), 
-          where('category', '==', category),
-          orderBy('createdAt', 'desc')
-        );
+    setLoading(true);
+    let q = query(
+      collection(db, 'productos'), 
+      where('category', '==', category),
+      orderBy('createdAt', 'desc')
+    );
 
-        if (activeSubcat) {
-          q = query(q, where('subcategory', '==', activeSubcat));
-        }
+    if (activeSubcat) {
+      q = query(q, where('subcategory', '==', activeSubcat));
+    }
 
-        const snapshot = await getDocs(q);
-        const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-        setProducts(fetched);
-      } catch (error) {
-        console.error('Error fetching products:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProducts();
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+      setProducts(fetched);
+      setLoading(false);
+    }, (error) => {
+      console.error('Error fetching products:', error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, [category, activeSubcat]);
 
   return (
