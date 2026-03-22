@@ -17,8 +17,8 @@ const Shop: React.FC<ShopProps> = ({ category }) => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const subcategories = category === 'ropa' 
-    ? ['Baggy', 'Jorts', 'Remeras', 'Hoodies', 'Pantalones']
-    : ['Gorras', 'Cintos', 'Medias', 'Otros'];
+    ? ['Baggy', 'Jorts', 'Remeras', 'Hoodies', 'Buzos', 'Pantalones', 'Camperas', 'Otros']
+    : ['Anillos', 'Collares', 'Pulseras', 'Gorras', 'Aros', 'Llaveros', 'Cintos', 'Medias', 'Otros'];
 
   const activeSubcat = searchParams.get('sub');
 

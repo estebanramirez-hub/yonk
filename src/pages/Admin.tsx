@@ -74,9 +74,8 @@ const handleFirestoreError = (error: unknown, operationType: OperationType, path
 
 const Admin: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [isPageLoading, setIsPageLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -94,15 +93,15 @@ const Admin: React.FC = () => {
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (u) => {
       setUser(u);
-      setLoading(false);
+      setIsPageLoading(false);
     });
 
     const q = query(collection(db, 'productos'), orderBy('createdAt', 'desc'));
     const unsubscribeProducts = onSnapshot(q, (snapshot) => {
       setProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
     }, (err) => {
-      handleFirestoreError(err, OperationType.GET, 'productos');
-      setError('Error al cargar productos.');
+      console.error("Firestore Snapshot Error:", err);
+      setError('Error al conectar con la base de datos. Verificá tu conexión.');
     });
 
     return () => {
@@ -114,41 +113,53 @@ const Admin: React.FC = () => {
   const handleLogin = async () => {
     setError('');
     try {
-      // Intentando iniciar sesión con Google
       await signInWithPopup(auth, googleProvider);
     } catch (err: any) {
-      console.error("Error de Firebase:", err);
-      if (err.code === 'auth/unauthorized-domain') {
-        setError('Error: Dominio no autorizado. Por favor, agrega "yonk-goya.netlify.app" en la sección de Dominios Autorizados de tu consola de Firebase.');
-      } else {
-        setError(`Error: ${err.message || 'Error al iniciar sesión con Google.'}`);
-      }
+      console.error("Login Error:", err);
+      setError(`Error: ${err.message || 'Error al iniciar sesión.'}`);
     }
   };
 
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    if (isSaving) return;
+    
+    setIsSaving(true);
+    setError('');
     const path = 'productos';
+    
     try {
+      // Validaciones básicas antes de enviar
+      if (!currentProduct.name || !currentProduct.price || currentProduct.price <= 0) {
+        throw new Error('El nombre y el precio (mayor a 0) son obligatorios.');
+      }
+
+      const productData = {
+        ...currentProduct,
+        price: Number(currentProduct.price),
+        stock: Number(currentProduct.stock),
+      };
+
       if (isEditing && currentProduct.id) {
-        await updateDoc(doc(db, path, currentProduct.id), {
-          ...currentProduct,
+        const { id, ...dataToUpdate } = productData;
+        await updateDoc(doc(db, path, id), {
+          ...dataToUpdate,
           updatedAt: serverTimestamp()
         });
       } else {
         await addDoc(collection(db, path), {
-          ...currentProduct,
+          ...productData,
           createdAt: serverTimestamp()
         });
       }
+      
       setIsEditing(false);
       setCurrentProduct({ name: '', description: '', price: 0, images: [''], stock: 0, category: 'ropa', subcategory: 'Baggy' });
-    } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, path);
-      setError('Error al guardar el producto. Verificá los permisos o si el precio es mayor a 0.');
+    } catch (err: any) {
+      console.error("Save Error:", err);
+      setError(err.message || 'Error al guardar el producto. Verificá los permisos.');
     } finally {
-      setLoading(false);
+      setIsSaving(false);
     }
   };
 
@@ -158,12 +169,12 @@ const Admin: React.FC = () => {
     try {
       await deleteDoc(doc(db, path, id));
     } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, path);
+      console.error("Delete Error:", err);
       setError('Error al eliminar.');
     }
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary" size={48} /></div>;
+  if (isPageLoading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary" size={48} /></div>;
 
   if (!user) {
     return (
@@ -197,9 +208,20 @@ const Admin: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
         {/* Product Form */}
-        <div className="lg:col-span-1 bg-surface-container p-8 border border-white/5 h-fit">
+        <div className="lg:col-span-1 bg-surface-container p-8 border border-white/5 h-fit relative">
+          {isSaving && (
+            <div className="absolute inset-0 z-10 bg-background/80 flex items-center justify-center backdrop-blur-sm">
+              <div className="text-center">
+                <Loader2 className="animate-spin text-primary mx-auto mb-4" size={32} />
+                <p className="font-display font-bold uppercase tracking-widest text-xs">Guardando...</p>
+              </div>
+            </div>
+          )}
+          
           <h3 className="text-2xl mb-8">{isEditing ? 'Editar Producto' : 'Nuevo Producto'}</h3>
           <form onSubmit={handleSaveProduct} className="space-y-6">
+            {error && <p className="p-4 bg-secondary/10 border border-secondary/20 text-secondary text-xs uppercase font-bold">{error}</p>}
+            
             <div>
               <label className="text-xs uppercase font-bold text-white/40 mb-2 block">Nombre del Producto</label>
               <input 
@@ -208,6 +230,7 @@ const Admin: React.FC = () => {
                 value={currentProduct.name} 
                 onChange={e => setCurrentProduct({...currentProduct, name: e.target.value})} 
                 required 
+                disabled={isSaving}
               />
             </div>
 
@@ -218,6 +241,7 @@ const Admin: React.FC = () => {
                 className="input h-32" 
                 value={currentProduct.description} 
                 onChange={e => setCurrentProduct({...currentProduct, description: e.target.value})} 
+                disabled={isSaving}
               />
             </div>
 
@@ -231,6 +255,7 @@ const Admin: React.FC = () => {
                   value={currentProduct.price} 
                   onChange={e => setCurrentProduct({...currentProduct, price: Number(e.target.value)})} 
                   required 
+                  disabled={isSaving}
                 />
               </div>
               <div>
@@ -242,6 +267,7 @@ const Admin: React.FC = () => {
                   value={currentProduct.stock} 
                   onChange={e => setCurrentProduct({...currentProduct, stock: Number(e.target.value)})} 
                   required 
+                  disabled={isSaving}
                 />
               </div>
             </div>
@@ -252,6 +278,7 @@ const Admin: React.FC = () => {
                 className="input" 
                 value={currentProduct.category} 
                 onChange={e => setCurrentProduct({...currentProduct, category: e.target.value as any, subcategory: ''})}
+                disabled={isSaving}
               >
                 <option value="ropa">Ropa</option>
                 <option value="accesorios">Accesorios</option>
@@ -265,6 +292,7 @@ const Admin: React.FC = () => {
                 value={currentProduct.subcategory} 
                 onChange={e => setCurrentProduct({...currentProduct, subcategory: e.target.value})} 
                 required 
+                disabled={isSaving}
               >
                 <option value="" disabled>Seleccionar Subcategoría</option>
                 {currentProduct.category === 'ropa' ? (
@@ -273,11 +301,19 @@ const Admin: React.FC = () => {
                     <option value="Jorts">Jorts</option>
                     <option value="Remeras">Remeras</option>
                     <option value="Hoodies">Hoodies</option>
+                    <option value="Buzos">Buzos</option>
                     <option value="Pantalones">Pantalones</option>
+                    <option value="Camperas">Camperas</option>
+                    <option value="Otros">Otros</option>
                   </>
                 ) : (
                   <>
+                    <option value="Anillos">Anillos</option>
+                    <option value="Collares">Collares</option>
+                    <option value="Pulseras">Pulseras</option>
                     <option value="Gorras">Gorras</option>
+                    <option value="Aros">Aros</option>
+                    <option value="Llaveros">Llaveros</option>
                     <option value="Cintos">Cintos</option>
                     <option value="Medias">Medias</option>
                     <option value="Otros">Otros</option>
@@ -294,15 +330,19 @@ const Admin: React.FC = () => {
                 value={currentProduct.images?.[0]} 
                 onChange={e => setCurrentProduct({...currentProduct, images: [e.target.value]})} 
                 required 
+                disabled={isSaving}
               />
             </div>
             <div className="flex gap-4">
-              <button type="submit" className="btn btn-primary flex-1">Guardar</button>
+              <button type="submit" className="btn btn-primary flex-1" disabled={isSaving}>
+                {isSaving ? 'Guardando...' : 'Guardar'}
+              </button>
               {isEditing && (
                 <button 
                   type="button" 
                   onClick={() => { setIsEditing(false); setCurrentProduct({ name: '', description: '', price: 0, images: [''], stock: 0, category: 'ropa', subcategory: 'Baggy' }); }}
                   className="btn btn-secondary"
+                  disabled={isSaving}
                 >
                   Cancelar
                 </button>
