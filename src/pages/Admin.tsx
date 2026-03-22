@@ -172,22 +172,28 @@ const Admin: React.FC = () => {
         throw new Error('El nombre, el precio (mayor a 0), la categoría, la subcategoría y la imagen son obligatorios.');
       }
 
-      const productData = {
-        ...currentProduct,
+      // Preparar datos limpios para Firestore
+      // Extraemos campos que NO deben enviarse en el cuerpo del documento o que son automáticos
+      const { id, createdAt, updatedAt, ...baseData } = currentProduct as any;
+
+      const dataToSave = {
+        ...baseData,
+        name: currentProduct.name.trim(),
+        description: currentProduct.description?.trim() || '',
         price: Number(currentProduct.price),
         stock: Number(currentProduct.stock),
+        category: currentProduct.category,
+        subcategory: currentProduct.subcategory,
+        images: currentProduct.images,
       };
-
-      // Clean up data for Firestore
-      const { id: productId, ...dataToSave } = productData;
 
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Tiempo de espera agotado (15s). Verificá tu conexión.')), 15000)
       );
 
-      if (isEditing && productId) {
-        console.log("Updating product:", productId);
-        const updatePromise = updateDoc(doc(db, path, productId), {
+      if (isEditing && id) {
+        console.log("Updating product:", id);
+        const updatePromise = updateDoc(doc(db, path, id), {
           ...dataToSave,
           updatedAt: serverTimestamp()
         });
@@ -208,8 +214,9 @@ const Admin: React.FC = () => {
       console.log("Form reset");
     } catch (err: any) {
       console.error("Save Error:", err);
-      const errorMessage = err.message || 'Error al guardar el producto.';
-      setError(errorMessage.includes('permission') ? 'Error de permisos: No estás autorizado.' : errorMessage);
+      const firestoreError = handleFirestoreError(err, isEditing ? OperationType.UPDATE : OperationType.CREATE, path);
+      const errorData = JSON.parse(firestoreError.message);
+      setError(`Error (${errorData.operationType}): ${errorData.error}`);
     } finally {
       console.log("Save operation finished");
       setIsSaving(false);
